@@ -1,7 +1,7 @@
 #ifndef ESP32_MOTORIZED_ROLLER_BLINDS_STEPPERHELPER_H
 #define ESP32_MOTORIZED_ROLLER_BLINDS_STEPPERHELPER_H
 
-#include <CheapStepper.h>
+#include "CheapStepper/CheapStepper.h"
 
 class StepperHelper {
 private:

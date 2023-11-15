@@ -1,5 +1,6 @@
 #define LONG_PRESS_MS 1000      // How much ms you should hold button to switch to "long press" mode (tune blinds position)
 #define MAX_STEPPERS_COUNT 4    // This limited by available pins usually
+#define SAFETY_REVOLUTION 2048  // A redundant half revolution that is added when blinds are sent up, to ensure they are fully up.
 /*
 Usually your home automation can extract needed data from single JSON with info about all steppers.
 These separate updates for specific steppers will additionally stuck all steppers for some milliseconds.
@@ -13,7 +14,7 @@ Do you really want this?
 
 #define HA_AUTODISCOVERY_PREFIX "homeassistant"
 
-#include <CheapStepper.h>
+#include "CheapStepper/CheapStepper.h"
 //#include <ESP8266mDNS.h>
 //#include <WiFiUdp.h>
 
@@ -40,7 +41,7 @@ StepperHelper stepperHelpers[MAX_STEPPERS_COUNT];
 
 String deviceHostname;             //WIFI config: Bonjour name of device
 int steppersRPM;                   //WIFI config
-int state = 0;
+int state = D10;
 long lastPublish = 0;
 
 boolean loadDataSuccess = false;
@@ -193,8 +194,10 @@ void processCommand(const String& command, const String& value, int stepperNum, 
                       stepperNum,
                       stepperHelper->currentPosition,
                       stepperHelper->targetPosition);
-        stepperHelper->getStepper()->newMove(stepperHelper->route == 1,
-                                            abs(stepperHelper->currentPosition - stepperHelper->targetPosition));
+        auto numSteps = abs(stepperHelper->currentPosition - stepperHelper->targetPosition);
+        // add redundant safety revolution if blind is sent fully up to ensure top position
+        if (value.toInt() == 0) numSteps += SAFETY_REVOLUTION;
+        stepperHelper->getStepper()->newMove(stepperHelper->route == 1, numSteps);
 
         //Send the instruction to all connected devices
         sendUpdate();
@@ -536,6 +539,20 @@ void setup(void) {
     //Start HTTP server
     server.on("/", handleRoot);
     server.on("/reset", [&] { helper.resetsettings(); });
+    server.on("/up", [&] {
+        for (auto i = 0; i < MAX_STEPPERS_COUNT; i++)
+            if (stepperHelpers[i].isConnected())
+                if (stepperHelpers[i].action == "auto") processCommand("stop", "0", i+1, 0);
+                else processCommand("auto", "0", i+1, 0);
+        server.send(200, "text/html", "Going up...");
+    });
+    server.on("/down", [&] {
+        for (auto i = 0; i < MAX_STEPPERS_COUNT; i++)
+            if (stepperHelpers[i].isConnected()) 
+                if (stepperHelpers[i].action == "auto") processCommand("stop", "0", i+1, 0); 
+                else processCommand("auto", "100", i+1, 0);
+        server.send(200, "text/html", "Going down...");
+    });
     server.onNotFound(handleNotFound);
     server.begin();
 
@@ -629,8 +646,13 @@ void loop(void) {
         }
         if (stepperHelper.action == "auto") {
             stepperHelper.getStepper()->run();
-            stepperHelper.currentPosition = stepperHelper.targetPosition - stepperHelper.getStepper()->getStepsLeft();
-            if (stepperHelper.currentPosition == stepperHelper.targetPosition) {
+            auto stepsLeftWithThreshold = stepperHelper.getStepper()->getStepsLeft();
+            auto stepsLeft = stepsLeftWithThreshold;
+            // deduct redundant safety revolution if blind is sent fully up to get actual current position
+            if (stepperHelper.targetPosition == 0) stepsLeft = min(0, stepsLeft + SAFETY_REVOLUTION);
+
+            stepperHelper.currentPosition = stepperHelper.targetPosition - stepsLeft;
+            if (stepsLeftWithThreshold == 0) {
                 stepperHelper.route = 0;
                 stepperHelper.action = "";
                 stepperHelper.set = (stepperHelper.targetPosition * 100) / stepperHelper.maxPosition;
