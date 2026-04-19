@@ -143,6 +143,16 @@ void processCommand(const String& command, const String& value, int stepperNum, 
         return;
     };
 
+    // num=0 means "all blinds" - apply command to every connected stepper
+    if (stepperNum == 0) {
+        for (uint8_t i = 0; i < MAX_STEPPERS_COUNT; i++) {
+            if (stepperHelpers[i].isConnected()) {
+                processCommand(command, value, i + 1, clientId);
+            }
+        }
+        return;
+    }
+
     if (!stepperHelpers[stepperNum - 1].isConnected()) {
         Serial.printf("Stepper %i is not connected. Ignoring command '%s' from client %i...\r\n",
                       stepperNum,
@@ -420,6 +430,26 @@ void sendHADiscovery() {
             true
         );
     }
+
+    // Add an "All Blinds" group entity (num=0 = all)
+    haConfig = "{\"~\":\"" + mqttHelper.prefix + "/" + String(chipId) + "\","
+        "\"name\":\"All Rollerblinds\","
+        "\"uniq_id\":\"" + String(chipId) + "_all\","
+        "\"dev_cla\":\"blind\","
+        "\"avty_t\":\"~/available\","
+        "\"cmd_t\":\"~/in\","
+        "\"pl_open\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"auto\\\", \\\"value\\\": 0}\","
+        "\"pl_cls\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"auto\\\", \\\"value\\\": 100}\","
+        "\"pl_stop\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"stop\\\", \\\"value\\\": 0}\","
+        "\"opt\":true,"
+        "\"dev\":{\"ids\":\"" + String(chipId) + "\",\"name\":\"ESP Motorized RollerBlinds\",\"mf\":\"https://github.com/eg321/esp32-motorized-roller-blinds\",\"sw\":\"" + version + "\",\"cu\":\"http://" + WiFi.localIP().toString() + "\",\"mdl\":\"DIY\"} "
+    "}";
+
+    mqttHelper.publishMsg(
+        String(HA_AUTODISCOVERY_PREFIX) + "/cover/" + String(chipId) + "_all/config",
+        haConfig,
+        true
+    );
 }
 
 void setup(void) {
