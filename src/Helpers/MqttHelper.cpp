@@ -9,9 +9,10 @@ boolean MqttHelper::reconnect() {
     if (!getClient().connected()) {
         String clientId = "ESP-Blinds-" + String(ESP_getChipId());
         Serial.printf("MQTT connecting (login: '%s', pass: '%s')...\r\n", mqttUser.c_str(), mqttPwd.c_str());
-        // Attempt to connect
-        if ((isLoginNeeded ? getClient().connect(clientId.c_str(), mqttUser.c_str(), mqttPwd.c_str())
-                           : getClient().connect(clientId.c_str()))) {
+        // Attempt to connect with LWT (Last Will) - marks device offline if connection drops
+        String availTopic = prefix + "/" + String(ESP_getChipId()) + "/available";
+        if ((isLoginNeeded ? getClient().connect(clientId.c_str(), mqttUser.c_str(), mqttPwd.c_str(), 0, true, availTopic.c_str(), "offline")
+                           : getClient().connect(clientId.c_str(), availTopic.c_str(), 0, true, "offline"))) {
             Serial.println("MQTT connected.");
 
             //Setup subscription
@@ -36,7 +37,7 @@ boolean MqttHelper::reconnect() {
 }
 
 void MqttHelper::sendAvailabilityMessage() {
-    publishMsg(prefix + "/" + String(ESP_getChipId()) + "/available", "online");
+    publishMsg(prefix + "/" + String(ESP_getChipId()) + "/available", "online", true);
 }
 
 void MqttHelper::loop() {
