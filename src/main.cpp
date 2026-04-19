@@ -27,6 +27,7 @@ Do you really want this?
 #include "Helpers/ButtonsHelper.h"
 #include "Helpers/StepperHelper.h"
 #include "index_html.h"
+#include "SettingsPage.h"
 #include <string>
 
 //----------------------------------------------------
@@ -553,6 +554,62 @@ void setup(void) {
                 else processCommand("auto", "100", i+1, 0);
         server.send(200, "text/html", "Going down...");
     });
+    // Settings page - allows changing MQTT and device settings via web UI
+    server.on("/settings", HTTP_GET, []() {
+        server.send(200, "text/html", SETTINGS_HTML);
+    });
+
+    // Return current settings as JSON
+    server.on("/settings/json", HTTP_GET, []() {
+        String json = "{";
+        json += "\"mqttServer\":\"" + mqttHelper.mqttServer + "\",";
+        json += "\"mqttPort\":" + String(mqttHelper.mqttPort) + ",";
+        json += "\"mqttUser\":\"" + mqttHelper.mqttUser + "\",";
+        json += "\"mqttPwd\":\"\",";  // Don't expose password
+        json += "\"deviceName\":\"" + deviceHostname + "\",";
+        json += "\"steppersRpm\":" + String(steppersRPM);
+        json += "}";
+        server.send(200, "application/json", json);
+    });
+
+    // Save settings and restart
+    server.on("/settings/save", HTTP_POST, []() {
+        String newMqttServer = server.arg("mqttServer");
+        String newMqttPort = server.arg("mqttPort");
+        String newMqttUser = server.arg("mqttUser");
+        String newMqttPwd = server.arg("mqttPwd");
+        String newDeviceName = server.arg("deviceName");
+        String newSteppersRpm = server.arg("steppersRpm");
+
+        // Write settings to SPIFFS (WiFiSettings format)
+        bool ok = true;
+
+        auto writeSetting = [&](const String& name, const String& value) {
+#ifdef ESP32
+            File f = SPIFFS.open("/" + name, "w");
+#else
+            File f = LittleFS.open("/" + name, "w");
+#endif
+            if (f) { f.print(value); f.close(); }
+            else { ok = false; }
+        };
+
+        writeSetting("MQTT server", newMqttServer);
+        writeSetting("MQTT port", newMqttPort);
+        writeSetting("MQTT username", newMqttUser);
+        writeSetting("MQTT password", newMqttPwd);
+        writeSetting("Name", newDeviceName);
+        writeSetting("Steppers speed (RPM)", newSteppersRpm);
+
+        if (ok) {
+            server.send(200, "application/json", "{\"success\":true}");
+            delay(1000);
+            ESP.restart();
+        } else {
+            server.send(500, "application/json", "{\"success\":false,\"error\":\"Failed to write settings\"}");
+        }
+    });
+
     server.onNotFound(handleNotFound);
     server.begin();
 
