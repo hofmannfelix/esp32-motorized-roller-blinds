@@ -7,10 +7,13 @@ boolean MqttHelper::reconnect() {
         isLoginNeeded = true;
     }
     if (!getClient().connected()) {
-        String clientId = "ESP-Blinds-" + String(ESP_getChipId());
+        String macId = String((uint64_t)ESP.getEfuseMac(), HEX);
+        macId.toUpperCase();
+        while (macId.length() < 12) macId = "0" + macId;
+        String clientId = "ESP-Blinds-" + macId;
         Serial.printf("MQTT connecting (login: '%s', pass: '%s')...\r\n", mqttUser.c_str(), mqttPwd.c_str());
         // Attempt to connect with LWT (Last Will) - marks device offline if connection drops
-        String availTopic = prefix + "/" + String(ESP_getChipId()) + "/available";
+        String availTopic = prefix + "/" + macId + "/available";
         if ((isLoginNeeded ? getClient().connect(clientId.c_str(), mqttUser.c_str(), mqttPwd.c_str(), 0, true, availTopic.c_str(), "offline")
                            : getClient().connect(clientId.c_str(), availTopic.c_str(), 0, true, "offline"))) {
             Serial.println("MQTT connected.");
@@ -37,7 +40,10 @@ boolean MqttHelper::reconnect() {
 }
 
 void MqttHelper::sendAvailabilityMessage() {
-    publishMsg(prefix + "/" + String(ESP_getChipId()) + "/available", "online", true);
+    String macId = String((uint64_t)ESP.getEfuseMac(), HEX);
+    macId.toUpperCase();
+    while (macId.length() < 12) macId = "0" + macId;
+    publishMsg(prefix + "/" + macId + "/available", "online", true);
 }
 
 void MqttHelper::loop() {
@@ -89,7 +95,10 @@ PubSubClient &MqttHelper::getClient() {
 }
 
 String MqttHelper::getTopicPath(const String &suffix) {
-    return prefix + "/" + String(ESP_getChipId()) + "/" + suffix;
+    String macId = String((uint64_t)ESP.getEfuseMac(), HEX);
+    macId.toUpperCase();
+    while (macId.length() < 12) macId = "0" + macId;
+    return prefix + "/" + macId + "/" + suffix;
 }
 
 void MqttHelper::publishMsg(String topic, String payload, bool isRetained) {

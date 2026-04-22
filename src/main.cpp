@@ -396,61 +396,64 @@ void sendHADiscovery() {
 
     isHADiscoveryWasSent = true;
     String haConfig;
-    uint32_t chipId = ESP_getChipId();
+    // Use full MAC hex string to ensure unique MQTT topics per device
+    String macId = String((uint64_t)ESP.getEfuseMac(), HEX);
+    macId.toUpperCase();
+    while (macId.length() < 12) macId = "0" + macId;
 
     uint8_t num = 0;
     for (StepperHelper stepperHelper : stepperHelpers) {
         num++;
         if (stepperHelper.isConnected()) {
-            haConfig = "{\"~\":\"" + mqttHelper.prefix + "/" + String(chipId) + "\","
+            haConfig = "{\"~\":\"" + mqttHelper.prefix + "/" + macId + "\","
                 "\"name\":\"Rollerblind " + String(num) + "\",\n"
-                "\"uniq_id\":\"" + String(chipId) + "_" + String(num) + "\","
+                "\"uniq_id\":\"" + macId + "_" + String(num) + "\","
                 "\"dev_cla\":\"blind\","
                 "\"avty_t\":\"~/available\","
                 "\"cmd_t\":\"~/in\","
                 "\"set_pos_t\":\"~/in\","
-                "\"set_pos_tpl\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"auto\\\", \\\"value\\\": {{ 100 - position }} }\",\n"
+                "\"set_pos_tpl\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"auto\\\", \\\"value\\\": {{ position }} }\",\n"
                 "\"pos_t\":\"~/out\",\n"
-                "\"pos_tpl\":\"{{ value_json.position" + String(num) + " }}\",\n"
+                "\"pos_tpl\":\"{{ 100 - value_json.position" + String(num) + " }}\",\n"
                 "\"pl_open\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"auto\\\", \\\"value\\\": 0}\",\n"
                 "\"pl_cls\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"auto\\\", \\\"value\\\": 100}\",\n"
                 "\"pl_stop\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"stop\\\", \\\"value\\\": 0}\",\n"
                 "\"pos_open\":0,\n"
                 "\"pos_clsd\":100,\n"
                 "\"opt\":false,"
-                "\"dev\":{\"ids\":\"" + String(chipId) + "\",\"name\":\"ESP Motorized RollerBlinds\",\"mf\":\"https://github.com/eg321/esp32-motorized-roller-blinds\",\"sw\":\"" + version + "\",\"cu\":\"http://" + WiFi.localIP().toString() + "\",\"mdl\":\"DIY\"} "
+                "\"dev\":{\"ids\":\"" + macId + "\",\"name\":\"ESP Motorized RollerBlinds\",\"mf\":\"https://github.com/eg321/esp32-motorized-roller-blinds\",\"sw\":\"" + version + "\",\"cu\":\"http://" + WiFi.localIP().toString() + "\",\"mdl\":\"DIY\"} "
             "}";
         } else {
             haConfig = ""; // empty payload will cause a previously discovered device to be deleted
         }
 
         mqttHelper.publishMsg(
-            String(HA_AUTODISCOVERY_PREFIX) + "/cover/" + String(chipId) + "_" + String(num) + "/config",
+            String(HA_AUTODISCOVERY_PREFIX) + "/cover/" + macId + "_" + String(num) + "/config",
             haConfig,
             true
         );
     }
 
     // Add an "All Blinds" group entity (num=0 = all)
-    haConfig = "{\"~\":\"" + mqttHelper.prefix + "/" + String(chipId) + "\","
+    haConfig = "{\"~\":\"" + mqttHelper.prefix + "/" + macId + "\","
         "\"name\":\"All Rollerblinds\","
-        "\"uniq_id\":\"" + String(chipId) + "_all\","
+        "\"uniq_id\":\"" + macId + "_all\","
         "\"dev_cla\":\"blind\","
         "\"avty_t\":\"~/available\","
         "\"cmd_t\":\"~/in\","
         "\"set_pos_t\":\"~/in\","
-        "\"set_pos_tpl\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"auto\\\", \\\"value\\\": {{ 100 - position }} }\","
+        "\"set_pos_tpl\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"auto\\\", \\\"value\\\": {{ position }} }\","
         "\"pos_t\":\"~/out\","
-        "\"pos_tpl\":\"{{ value_json.position1 }}\","
+        "\"pos_tpl\":\"{{ 100 - value_json.position1 }}\","
         "\"pl_open\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"auto\\\", \\\"value\\\": 0}\","
         "\"pl_cls\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"auto\\\", \\\"value\\\": 100}\","
         "\"pl_stop\":\"{\\\"num\\\": 0, \\\"action\\\": \\\"stop\\\", \\\"value\\\": 0}\","
         "\"opt\":true,"
-        "\"dev\":{\"ids\":\"" + String(chipId) + "\",\"name\":\"ESP Motorized RollerBlinds\",\"mf\":\"https://github.com/eg321/esp32-motorized-roller-blinds\",\"sw\":\"" + version + "\",\"cu\":\"http://" + WiFi.localIP().toString() + "\",\"mdl\":\"DIY\"} "
+        "\"dev\":{\"ids\":\"" + macId + "\",\"name\":\"ESP Motorized RollerBlinds\",\"mf\":\"https://github.com/eg321/esp32-motorized-roller-blinds\",\"sw\":\"" + version + "\",\"cu\":\"http://" + WiFi.localIP().toString() + "\",\"mdl\":\"DIY\"} "
     "}";
 
     mqttHelper.publishMsg(
-        String(HA_AUTODISCOVERY_PREFIX) + "/cover/" + String(chipId) + "_all/config",
+        String(HA_AUTODISCOVERY_PREFIX) + "/cover/" + macId + "_all/config",
         haConfig,
         true
     );
