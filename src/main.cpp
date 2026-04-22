@@ -418,8 +418,8 @@ void sendHADiscovery() {
                 "\"pl_open\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"auto\\\", \\\"value\\\": 0}\",\n"
                 "\"pl_cls\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"auto\\\", \\\"value\\\": 100}\",\n"
                 "\"pl_stop\":\"{\\\"num\\\": " + String(num) + ", \\\"action\\\": \\\"stop\\\", \\\"value\\\": 0}\",\n"
-                "\"pos_open\":0,\n"
-                "\"pos_clsd\":100,\n"
+                "\"pos_open\":100,\n"
+                "\"pos_clsd\":0,\n"
                 "\"opt\":false,"
                 "\"dev\":{\"ids\":\"" + macId + "\",\"name\":\"ESP Motorized RollerBlinds\",\"mf\":\"https://github.com/eg321/esp32-motorized-roller-blinds\",\"sw\":\"" + version + "\",\"cu\":\"http://" + WiFi.localIP().toString() + "\",\"mdl\":\"DIY\"} "
             "}";
